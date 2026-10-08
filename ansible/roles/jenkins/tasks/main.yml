@@ -1,0 +1,45 @@
+---
+# Docker Compose로 Jenkins 컨테이너 배포 (Docker는 docker role에서 설치)
+- name: Verify Docker Compose is available
+  ansible.builtin.command: docker compose version
+  changed_when: false
+
+- name: Create Jenkins deploy directory
+  ansible.builtin.file:
+    path: "{{ jenkins_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Create Jenkins home directory
+  ansible.builtin.file:
+    path: "{{ jenkins_home_dir }}"
+    state: directory
+    owner: '1000'
+    group: '1000'
+
+- name: Get docker group GID
+  ansible.builtin.getent:
+    database: group
+    key: docker
+
+- name: Copy Jenkins image build files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ jenkins_dir }}/{{ item }}"
+    mode: '0644'
+  loop:
+    - Dockerfile
+    - plugins.txt
+
+- name: Render docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ jenkins_dir }}/docker-compose.yml"
+    mode: '0644'
+  vars:
+    docker_gid: "{{ ansible_facts.getent_group.docker[1] }}"
+
+- name: Build and start Jenkins
+  community.docker.docker_compose_v2:
+    project_src: "{{ jenkins_dir }}"
+    state: present

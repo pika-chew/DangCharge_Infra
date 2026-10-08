@@ -1,0 +1,7 @@
+---
+- name: Deploy Jenkins container
+  hosts: jenkins
+  become: true
+
+  roles:
+    - jenkins
