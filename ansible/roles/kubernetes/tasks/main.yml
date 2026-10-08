@@ -1,0 +1,94 @@
+---
+# ========================================
+#  Kubernetes 설치 사전 패키지
+# ========================================
+
+# Kubernetes 저장소 등록에 필요한 패키지 설치
+- name: Install Kubernetes dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gpg
+      - python3-debian
+    state: present
+    update_cache: true
+
+
+# ========================================
+#  Kubernetes APT Repository 설정
+# ========================================
+
+# APT keyring 디렉토리 생성
+- name: Create APT keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+# Kubernetes repository GPG Key 다운로드
+- name: Download Kubernetes GPG key
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key"
+    dest: /tmp/kubernetes-release.key
+    mode: '0644'
+
+# GPG Key를 APT keyring 형식으로 변환
+- name: Add Kubernetes GPG key
+  ansible.builtin.shell: |
+    gpg --dearmor --yes \
+      -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
+      /tmp/kubernetes-release.key
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+# Kubernetes APT Repository 등록
+- name: Add Kubernetes APT repository
+  ansible.builtin.deb822_repository:
+    name: kubernetes
+    types: [deb]
+    uris: https://pkgs.k8s.io/core:/stable:/v1.35/deb/
+    suites: [/]
+    components: []
+    signed_by: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    state: present
+
+
+# ========================================
+#  kubelet / kubeadm / kubectl 설치
+# ========================================
+
+- name: Install Kubernetes packages
+  ansible.builtin.apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: true
+
+
+# ========================================
+#  Kubernetes 패키지 버전 고정
+# ========================================
+
+# 자동 업데이트로 노드별 Kubernetes 버전이 달라지는 것을 방지
+- name: Hold Kubernetes packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+
+# ========================================
+#  kubelet 서비스 설정
+# ========================================
+
+# 부팅 시 kubelet 자동 실행
+- name: Enable kubelet
+  ansible.builtin.systemd:
+    name: kubelet
+    enabled: true

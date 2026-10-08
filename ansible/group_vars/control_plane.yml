@@ -1,0 +1,2 @@
+---
+kube_apiserver_advertise_address: 10.10.0.10

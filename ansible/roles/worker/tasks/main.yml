@@ -1,0 +1,10 @@
+---
+# ========================================
+#  Worker Node 클러스터 참여
+# ========================================
+
+# Control Plane에서 생성한 join 명령을 사용하여 Worker Node를 Kubernetes 클러스터에 참여
+- name: Join worker node to Kubernetes cluster
+  ansible.builtin.command: "{{ hostvars[groups['control_plane'][0]]['join_command']['stdout'] }}"
+  args:
+    creates: /etc/kubernetes/kubelet.conf

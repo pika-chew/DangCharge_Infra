@@ -1,0 +1,34 @@
+---
+# ========================================
+#  모든 Kubernetes Node 기본 설정
+# ========================================
+- name: Prepare all Kubernetes nodes
+  hosts: k8s_cluster
+  become: true
+
+  roles:
+    - common
+    - containerd
+    - kubernetes
+
+
+# ========================================
+#  Control Plane 초기화 및 CNI 설치
+# ========================================
+- name: Initialize Kubernetes control plane
+  hosts: control_plane
+  become: true
+
+  roles:
+    - control-plane
+    - cni
+
+# ========================================
+#  Worker Node 클러스터 참여
+# ========================================
+- name: Join worker nodes
+  hosts: workers
+  become: true
+
+  roles:
+    - worker

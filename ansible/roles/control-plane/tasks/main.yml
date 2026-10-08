@@ -1,0 +1,44 @@
+---
+# ========================================
+#  Kubernetes Control Plane 초기화
+# ========================================
+
+# kubeadm을 이용하여 Control Plane 초기화
+- name: Initialize Kubernetes control plane
+  ansible.builtin.command: >
+    kubeadm init
+    --apiserver-advertise-address={{ kube_apiserver_advertise_address }}
+    --pod-network-cidr={{ pod_network_cidr }}
+    --service-cidr={{ service_network_cidr }}
+  args:
+    creates: /etc/kubernetes/admin.conf
+
+
+# ========================================
+#  kubectl 설정
+# ========================================
+
+# ubuntu 사용자의 .kube 디렉토리 생성
+- name: Create .kube directory
+  ansible.builtin.file:
+    path: /home/{{ ansible_user }}/.kube
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+# kubeadm이 생성한 admin.conf를 kubectl 설정 파일로 복사
+- name: Copy Kubernetes admin config
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/{{ ansible_user }}/.kube/config
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0600'
+
+# Worker 노드가 클러스터에 참여할 때 사용할 일회성 join 명령 생성
+- name: Generate worker join command
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: join_command
+  changed_when: false

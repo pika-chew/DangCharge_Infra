@@ -1,0 +1,5 @@
+---
+pod_network_cidr: 10.244.0.0/16
+service_network_cidr: 10.96.0.0/16
+
+calico_version: v3.31.3

@@ -1,0 +1,51 @@
+---
+# ========================================
+#  Containerd 설치
+# ========================================
+
+# 패키지 목록 갱신 후 containerd 설치
+- name: Install containerd
+  ansible.builtin.apt:
+    name: containerd
+    state: present
+    update_cache: true
+
+
+# ========================================
+#  Containerd 설정
+# ========================================
+
+# /etc/containerd 디렉토리 생성
+- name: Create containerd config directory
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# containerd 기본 설정 파일 생성
+- name: Generate containerd default config
+  ansible.builtin.shell: |
+    containerd config default > /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+
+# Kubernetes에서 systemd cgroup을 사용하도록 설정
+- name: Configure SystemdCgroup
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+
+
+# ========================================
+#  Containerd 서비스 설정
+# ========================================
+
+# 변경된 설정을 적용하기 위해 containerd 재시작
+- name: Restart containerd
+  ansible.builtin.systemd:
+    name: containerd
+    state: restarted
+    enabled: true

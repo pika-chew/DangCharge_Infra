@@ -1,0 +1,67 @@
+---
+# ========================================
+#  Calico CNI 설치
+# ========================================
+
+# Calico manifest 다운로드
+- name: Download Calico manifest
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/calico.yaml"
+    dest: /tmp/calico.yaml
+    mode: '0644'
+
+
+# ========================================
+#  Calico VXLAN 네트워크 설정
+# ========================================
+
+# Calico가 사용할 Pod CIDR과 외부 통신 NAT를 설정
+- name: Configure Calico pod CIDR and NAT
+  ansible.builtin.replace:
+    path: /tmp/calico.yaml
+    regexp: '^(?P<indent>[ \t]*)# - name: CALICO_IPV4POOL_CIDR\n[ \t]*#   value: "192\.168\.0\.0/16"$'
+    replace: '\g<indent>- name: CALICO_IPV4POOL_CIDR\n\g<indent>  value: "{{ pod_network_cidr }}"\n\g<indent>- name: CALICO_IPV4POOL_NAT_OUTGOING\n\g<indent>  value: "true"'
+
+# VXLAN only: disable IP-in-IP encapsulation and enable VXLAN for all
+# inter-node Pod traffic.
+- name: Disable Calico IP-in-IP
+  ansible.builtin.replace:
+    path: /tmp/calico.yaml
+    regexp: '^(?P<indent>[ \t]*)- name: CALICO_IPV4POOL_IPIP\n[ \t]*value: "Always"$'
+    replace: '\g<indent>- name: CALICO_IPV4POOL_IPIP\n\g<indent>  value: "Never"'
+
+- name: Enable Calico VXLAN
+  ansible.builtin.replace:
+    path: /tmp/calico.yaml
+    regexp: '^(?P<indent>[ \t]*)- name: CALICO_IPV4POOL_VXLAN\n[ \t]*value: "Never"$'
+    replace: '\g<indent>- name: CALICO_IPV4POOL_VXLAN\n\g<indent>  value: "Always"'
+
+# The VXLAN backend turns off the BIRD BGP daemon.
+- name: Disable Calico BGP backend
+  ansible.builtin.replace:
+    path: /tmp/calico.yaml
+    regexp: '^(?P<indent>[ \t]*)calico_backend: "bird"$'
+    replace: '\g<indent>calico_backend: "vxlan"'
+
+# BIRD is disabled, so its health checks must be removed as well.
+- name: Remove Calico BIRD health checks
+  ansible.builtin.lineinfile:
+    path: /tmp/calico.yaml
+    regexp: '^[ \t]*- -bird-(live|ready)$'
+    state: absent
+
+
+# ========================================
+#  Calico 적용
+# ========================================
+
+# Kubernetes 클러스터에 Calico 설치
+- name: Apply Calico manifest
+  ansible.builtin.command:
+    cmd: kubectl apply -f /tmp/calico.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: calico_apply
+  changed_when: >
+    'created' in calico_apply.stdout or
+    'configured' in calico_apply.stdout
