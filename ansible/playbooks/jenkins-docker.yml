@@ -1,0 +1,7 @@
+---
+- name: Install Docker Engine on Jenkins
+  hosts: jenkins
+  become: true
+
+  roles:
+    - docker

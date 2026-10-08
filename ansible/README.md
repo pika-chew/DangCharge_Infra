@@ -18,5 +18,8 @@ ansible-galaxy collection install -r collections/requirements.yml
 
 ansible all -m ping
 ansible-playbook playbooks/site.yml
+ansible-playbook playbooks/jenkins-docker.yml
 ```
 플레이북 실행하기 전, 모든 Kubernetes 노드의 호스트 키를 `~/.ssh/known_hosts`에 등록하고 확인.
+
+`jenkins-docker.yml` 플레이북 실행 후 Docker 그룹권한을 적용하기 위해 jenkins-1 VM에 다시 로그인해야 함.
