@@ -7,7 +7,7 @@
 - name: Initialize Kubernetes control plane
   ansible.builtin.command: >
     kubeadm init
-    --apiserver-advertise-address={{ kube_apiserver_advertise_address }}
+    --apiserver-advertise-address={{ ansible_host }}
     --pod-network-cidr={{ pod_network_cidr }}
     --service-cidr={{ service_network_cidr }}
   args:
