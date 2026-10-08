@@ -1,0 +1,25 @@
+# --- 파이프라인 / SCM ---
+workflow-aggregator
+git
+github
+github-branch-source
+pipeline-stage-view
+
+# --- Docker 이미지 빌드/푸시 ---
+docker-workflow
+credentials-binding
+ssh-agent
+
+# --- 빌드 도구 (Spring Boot / React) ---
+gradle
+nodejs
+
+# --- 편의 / 운영 ---
+timestamper
+ws-cleanup
+configuration-as-code
+
+# --- 모니터링 (Prometheus가 /prometheus 엔드포인트로 수집) ---
+prometheus
+
+# 버전을 고정하려면 plugin-id:버전 형식으로 적는다. 예) git:5.7.0
