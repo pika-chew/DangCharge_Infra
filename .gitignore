@@ -1,0 +1,13 @@
+.DS_Store
+
+# Ansible temporary output
+*.retry
+*.log
+.cache/
+.tmp/
+
+# Sensitive files
+*.pem
+*.key
+*.vault
+.env
