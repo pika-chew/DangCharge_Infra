@@ -1,0 +1,162 @@
+---
+# worker-4를 Kubernetes 클러스터에서 안전하게 제외하고,
+# 노드에 남아 있는 Kubernetes 구성 요소를 제거
+#
+# 실행 전에는 worker-4를 inventory/hosts.yml에 유지해야 함
+# 실행이 성공한 후에만 인벤토리에서 worker-4 항목을 제거
+
+- name: Drain and remove a Kubernetes worker from the cluster
+  hosts: control_plane
+  become: true
+  gather_facts: false
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  vars:
+    target_worker: worker-4
+
+  pre_tasks:
+    - name: Verify the requested worker is the approved decommission target
+      ansible.builtin.assert:
+        that:
+          - target_worker == 'worker-4'
+          - target_worker in groups['workers']
+        fail_msg: >-
+          This playbook is intentionally limited to worker-4. Keep worker-4
+          in the workers inventory group until this playbook completes.
+
+  tasks:
+    - name: Check whether the worker still exists in the Kubernetes cluster
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - node
+          - "{{ target_worker }}"
+          - -o
+          - name
+          - --ignore-not-found
+      register: worker_node
+      changed_when: false
+
+    - name: Drain and remove the worker when its Node object exists
+      when: worker_node.stdout | trim | length > 0
+      block:
+        - name: Read the kube-proxy image actually used by the cluster
+          ansible.builtin.command:
+            argv:
+              - kubectl
+              - -n
+              - kube-system
+              - get
+              - daemonset
+              - kube-proxy
+              - -o
+              - 'jsonpath={.spec.template.spec.containers[0].image}'
+          register: kube_proxy_image
+          changed_when: false
+
+        - name: Require a kube-proxy image before removing the Node
+          ansible.builtin.assert:
+            that:
+              - kube_proxy_image.stdout | trim | length > 0
+
+        - name: Check the kube-proxy image on worker-4
+          ansible.builtin.command:
+            argv:
+              - ctr
+              - --namespace
+              - k8s.io
+              - images
+              - inspect
+              - "{{ kube_proxy_image.stdout | trim }}"
+          delegate_to: worker-4
+          register: worker_kube_proxy_image
+          failed_when: false
+          changed_when: false
+
+        - name: Pull the kube-proxy image before removing the Node
+          ansible.builtin.command:
+            argv:
+              - ctr
+              - --namespace
+              - k8s.io
+              - images
+              - pull
+              - "{{ kube_proxy_image.stdout | trim }}"
+          delegate_to: worker-4
+          when: worker_kube_proxy_image.rc != 0
+
+        - name: Prevent new Pods from being scheduled on the worker
+          ansible.builtin.command:
+            argv:
+              - kubectl
+              - cordon
+              - "{{ target_worker }}"
+          register: cordon_result
+          changed_when: "'already cordoned' not in cordon_result.stdout"
+
+        - name: Drain workload Pods from the worker
+          ansible.builtin.command:
+            argv:
+              - kubectl
+              - drain
+              - "{{ target_worker }}"
+              - --ignore-daemonsets
+              - --delete-emptydir-data
+              - --timeout=5m
+          changed_when: true
+
+        - name: Stop kubelet so the Node cannot register again
+          ansible.builtin.systemd:
+            name: kubelet
+            state: stopped
+            enabled: false
+          delegate_to: worker-4
+
+        - name: Remove the worker node object from Kubernetes
+          ansible.builtin.command:
+            argv:
+              - kubectl
+              - delete
+              - node
+              - "{{ target_worker }}"
+          changed_when: true
+
+- name: Remove Kubernetes software and configuration from the worker
+  hosts: worker-4
+  become: true
+  gather_facts: false
+  vars:
+    target_worker: worker-4
+  pre_tasks:
+    - name: Verify this play targets only worker-4
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == 'worker-4'
+          - inventory_hostname in groups['workers']
+
+    - name: Confirm the Node is absent even when the control-plane play was limited out
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - node
+          - "{{ target_worker }}"
+          - -o
+          - name
+          - --ignore-not-found
+      delegate_to: "{{ groups['control_plane'][0] }}"
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: worker_node_before_reset
+      changed_when: false
+
+    - name: Refuse to reset a worker that is still registered in Kubernetes
+      ansible.builtin.assert:
+        that:
+          - worker_node_before_reset.stdout | trim | length == 0
+        fail_msg: >-
+          worker-4 is still registered in Kubernetes. Run this playbook
+          without --limit so cordon, drain, and Node deletion can finish first.
+  roles:
+    - worker-reset
