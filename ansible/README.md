@@ -44,6 +44,8 @@ ansible-playbook playbooks/jenkins-docker.yml
 ```bash
 ansible-playbook playbooks/decommission-worker.yml -e worker_reset_reboot=true
 ```
-플레이북은 worker-4를 대상으로 cordon, drain, 노드 삭제, `kubeadm reset`,  Kubernetes·containerd·CNI 설정 및 패키지 제거 수행
+worker-4를 대상으로 kube-proxy 이미지 준비, cordon, drain, 노드 삭제, `kubeadm reset`, Kubernetes·containerd·CNI 설정 및 패키지 제거 수행
+kube-proxy 이미지가 없으면 Node 삭제 전에 내려받습니다
 
-Kubernetes 네트워크 규칙도 kube-proxy의 공식 cleanup 동작으로 정리
+Node 삭제 뒤에 실패하더라도 같은 명령으로 재실행 가능
+`--limit worker-4`로 첫 플레이를 생략한 경우에는 클러스터에 worker-4가 남아 있으면 초기화 전에 중지됩니다

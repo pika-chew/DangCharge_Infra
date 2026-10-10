@@ -26,9 +26,5 @@ worker_reset_system_paths:
   - /etc/modules-load.d/k8s.conf
   - /etc/sysctl.d/k8s.conf
 
-# 현재 클러스터의 kube-proxy 이미지입니다. kube-proxy의 --cleanup을 사용해
-# Kubernetes가 만든 iptables/nftables/IPVS 규칙만 정리
-worker_reset_kube_proxy_image: registry.k8s.io/kube-proxy:v1.35.9
-
 # 재부팅하면 제거한 커널 모듈 및 sysctl 파일의 효과가 완전히 반영
 worker_reset_reboot: false
