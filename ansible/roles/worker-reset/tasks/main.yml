@@ -1,0 +1,107 @@
+---
+- name: Verify this host is the approved decommission target
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == 'worker-4'
+      - inventory_hostname in groups['workers']
+    fail_msg: >-
+      The worker-reset role is intentionally limited to worker-4. Do not use
+      it to reset control-plane, worker-1, worker-2, or worker-3.
+
+- name: Stop and disable kubelet before reset
+  ansible.builtin.systemd:
+    name: kubelet
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Remove Kubernetes network rules with kube-proxy cleanup
+  ansible.builtin.command:
+    argv:
+      - ctr
+      - --namespace
+      - k8s.io
+      - run
+      - --rm
+      - --net-host
+      - --privileged
+      - --mount
+      - type=bind,src=/lib/modules,dst=/lib/modules,options=rbind:ro
+      - "{{ worker_reset_kube_proxy_image }}"
+      - kube-proxy-cleanup
+      - kube-proxy
+      - --cleanup
+  changed_when: true
+
+- name: Reset kubeadm state
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - reset
+      - --force
+  changed_when: true
+
+- name: Remove hold from Kubernetes packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: install
+  loop: "{{ worker_reset_kubernetes_packages }}"
+
+- name: Remove Kubernetes packages and their configuration
+  ansible.builtin.apt:
+    name: "{{ worker_reset_kubernetes_packages }}"
+    state: absent
+    purge: true
+
+- name: Stop and disable containerd
+  ansible.builtin.systemd:
+    name: containerd
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Remove containerd package and its configuration
+  ansible.builtin.apt:
+    name: containerd
+    state: absent
+    purge: true
+
+- name: Remove Kubernetes, CNI, Calico, and containerd data
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ worker_reset_data_paths }}"
+
+- name: Remove Kubernetes APT repository files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ worker_reset_repository_paths }}"
+
+- name: Remove Kubernetes kernel and sysctl configuration files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ worker_reset_system_paths }}"
+
+- name: Restore swap entries disabled for Kubernetes
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^# (.*\sswap\s+.*)$'
+    replace: '\1'
+
+- name: Enable restored swap entries
+  ansible.builtin.command: swapon -a
+  changed_when: false
+
+- name: Reboot after worker reset when requested
+  ansible.builtin.reboot:
+    reboot_timeout: 600
+  when: worker_reset_reboot | bool
+
+- name: Report remaining actions
+  ansible.builtin.debug:
+    msg:
+      - "worker-4 is no longer a Kubernetes node and its Kubernetes packages were removed."
+      - "Kubernetes network rules were removed with kube-proxy cleanup. SSH and Ubuntu firewall configuration were not changed."
+      - "Reboot worker-4 before assigning its next role, or use -e worker_reset_reboot=true when running this playbook."

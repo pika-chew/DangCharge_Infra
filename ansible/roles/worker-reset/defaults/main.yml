@@ -1,0 +1,34 @@
+---
+# kubeadm reset 이후 Kubernetes 전용 파일과 패키지를 제거
+# SSH, Ubuntu 기본 네트워크 설정과 방화벽 규칙은 건드리지 않는다
+worker_reset_kubernetes_packages:
+  - kubelet
+  - kubeadm
+  - kubectl
+
+worker_reset_data_paths:
+  - /etc/kubernetes
+  - /var/lib/kubelet
+  - /etc/cni/net.d
+  - /opt/cni
+  - /var/lib/cni
+  - /var/lib/calico
+  - /run/calico
+  - /etc/containerd
+  - /var/lib/containerd
+
+worker_reset_repository_paths:
+  - /etc/apt/sources.list.d/kubernetes.sources
+  - /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  - /tmp/kubernetes-release.key
+
+worker_reset_system_paths:
+  - /etc/modules-load.d/k8s.conf
+  - /etc/sysctl.d/k8s.conf
+
+# 현재 클러스터의 kube-proxy 이미지입니다. kube-proxy의 --cleanup을 사용해
+# Kubernetes가 만든 iptables/nftables/IPVS 규칙만 정리
+worker_reset_kube_proxy_image: registry.k8s.io/kube-proxy:v1.35.9
+
+# 재부팅하면 제거한 커널 모듈 및 sysctl 파일의 효과가 완전히 반영
+worker_reset_reboot: false
