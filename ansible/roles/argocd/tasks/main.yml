@@ -1,0 +1,107 @@
+---
+# ========================================
+#  Helm 설치
+# ========================================
+
+# 설치된 Helm 버전 확인 (없으면 rc != 0)
+- name: Check installed Helm version
+  ansible.builtin.command: /usr/local/bin/helm version --short
+  register: argocd_helm_installed
+  changed_when: false
+  failed_when: false
+
+# 고정 버전과 다를 때만 다운로드 후 교체
+- name: Install Helm
+  when: not argocd_helm_installed.stdout.startswith(argocd_helm_version ~ '+')
+  block:
+    # 공식 sha256 체크섬으로 검증하며 다운로드
+    - name: Download Helm archive
+      ansible.builtin.get_url:
+        url: "https://get.helm.sh/helm-{{ argocd_helm_version }}-linux-{{ argocd_helm_arch }}.tar.gz"
+        dest: "/tmp/helm-{{ argocd_helm_version }}-linux-{{ argocd_helm_arch }}.tar.gz"
+        checksum: "sha256:https://get.helm.sh/helm-{{ argocd_helm_version }}-linux-{{ argocd_helm_arch }}.tar.gz.sha256sum"
+        mode: '0644'
+
+    - name: Extract Helm archive
+      ansible.builtin.unarchive:
+        src: "/tmp/helm-{{ argocd_helm_version }}-linux-{{ argocd_helm_arch }}.tar.gz"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install Helm binary
+      ansible.builtin.copy:
+        src: "/tmp/linux-{{ argocd_helm_arch }}/helm"
+        dest: /usr/local/bin/helm
+        remote_src: true
+        mode: '0755'
+
+
+# ========================================
+#  Python kubernetes 라이브러리 설치
+# ========================================
+
+# Ubuntu 시스템 Python은 pip 설치가 막혀 있으므로(PEP 668) 전용 venv 사용
+- name: Install Python venv package
+  ansible.builtin.apt:
+    name: python3-venv
+    state: present
+    update_cache: true
+
+- name: Create Argo CD working directory
+  ansible.builtin.file:
+    path: "{{ argocd_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Install Python kubernetes library
+  ansible.builtin.pip:
+    name: "kubernetes=={{ argocd_python_kubernetes_version }}"
+    virtualenv: "{{ argocd_venv_dir }}"
+    virtualenv_command: python3 -m venv
+
+
+# ========================================
+#  Argo CD 설치
+# ========================================
+
+# 차트 values 렌더링 (PriorityClass, 리소스, NodePort)
+- name: Render Argo CD values
+  ansible.builtin.template:
+    src: values.yaml.j2
+    dest: "{{ argocd_dir }}/values.yaml"
+    mode: '0644'
+
+# kubernetes.core 모듈은 venv의 Python으로 실행
+- name: Deploy Argo CD
+  vars:
+    ansible_python_interpreter: "{{ argocd_venv_dir }}/bin/python"
+  block:
+    # Argo CD 파드가 사용할 PriorityClass 생성
+    - name: Create Argo CD PriorityClass
+      kubernetes.core.k8s:
+        kubeconfig: "{{ argocd_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: scheduling.k8s.io/v1
+          kind: PriorityClass
+          metadata:
+            name: "{{ argocd_priority_class_name }}"
+          value: "{{ argocd_priority_class_value | int }}"
+          globalDefault: false
+          description: Priority for platform components
+
+    # 고정된 차트 버전으로 설치/업그레이드 후 파드 Ready까지 대기
+    - name: Install Argo CD Helm chart
+      kubernetes.core.helm:
+        kubeconfig: "{{ argocd_kubeconfig }}"
+        binary_path: /usr/local/bin/helm
+        name: "{{ argocd_release_name }}"
+        chart_ref: argo-cd
+        chart_repo_url: "{{ argocd_chart_repo_url }}"
+        chart_version: "{{ argocd_chart_version }}"
+        release_namespace: "{{ argocd_namespace }}"
+        create_namespace: true
+        values_files:
+          - "{{ argocd_dir }}/values.yaml"
+        wait: true
+        wait_timeout: 10m

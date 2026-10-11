@@ -1,0 +1,92 @@
+# argo-cd {{ argocd_chart_version }} 차트 values (Ansible이 렌더링)
+# 메모리는 requests = limits 로 맞춘다
+
+global:
+  priorityClassName: {{ argocd_priority_class_name }}
+
+
+# ========================================
+#  Argo CD UI/API 노출 (NodePort)
+# ========================================
+
+server:
+  service:
+    type: NodePort
+    nodePortHttp: {{ argocd_server_node_port_http }}
+    nodePortHttps: {{ argocd_server_node_port_https }}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+
+# ========================================
+#  컴포넌트별 리소스 requests/limits
+# ========================================
+
+controller:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+notifications:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+# 설치 시 Redis 비밀번호를 만드는 일회성 Job
+redisSecretInit:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+
+# ========================================
+#  비활성화 컴포넌트
+# ========================================
+
+# SSO 미사용
+dex:
+  enabled: false

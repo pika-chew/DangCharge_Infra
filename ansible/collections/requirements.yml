@@ -4,3 +4,6 @@ collections:
     version: ">=13.0.0,<14.0.0"
   - name: community.docker
     version: ">=4.0.0"
+  # Helm v4 대응이 포함된 6.5.0 이상 사용
+  - name: kubernetes.core
+    version: ">=6.5.0,<7.0.0"
