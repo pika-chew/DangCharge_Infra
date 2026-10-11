@@ -52,11 +52,15 @@ Helm과 Python kubernetes 라이브러리(`/opt/argocd/venv`)는 role에서 설�
 
 ### 설치 후 할 일
 
-1. **설치 확인 및 admin 비밀번호 조회**
+1. **설치 확인 및 admin 비밀번호 조회** (control-plane에서 실행)
    ```bash
+   ssh ubuntu@10.20.0.110
    kubectl -n argocd get pods
    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
    ```
+   jenkins-1에는 kubeconfig가 없으므로 control-plane에서 실행
+   `ubuntu` 사용자의 `~/.kube/config`(control-plane role이 `admin.conf`를 복사해 둔 것)를 사용
+
    UI(`https://<노드 IP>:30443`)에 `admin`으로 로그인 후 비밀번호 변경
    (추후 이 단계를 role의 task로 추가 가능)
 
