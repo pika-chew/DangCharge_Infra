@@ -37,6 +37,38 @@ ansible-playbook playbooks/jenkins-docker.yml
 ---
 <br>
 
+## Argo CD setup
+
+```bash
+ansible-galaxy collection install -r collections/requirements.yml
+ansible-playbook playbooks/argocd.yml
+```
+control-plane에서 `admin.conf`로 Helm 설치, PriorityClass 생성, argo-cd 차트 설치 수행
+Helm과 Python kubernetes 라이브러리(`/opt/argocd/venv`)는 role에서 설치
+
+- 버전: `roles/argocd/defaults/main.yml` (차트, Helm, Python kubernetes)
+- PriorityClass / 리소스 / NodePort: `roles/argocd/templates/values.yaml.j2`
+- UI 접속: `https://<노드 IP>:30443`
+
+### 설치 후 할 일
+
+1. **설치 확인 및 admin 비밀번호 조회**
+   ```bash
+   kubectl -n argocd get pods
+   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+   ```
+   UI(`https://<노드 IP>:30443`)에 `admin`으로 로그인 후 비밀번호 변경
+   (추후 이 단계를 role의 task로 추가 가능)
+
+2. **GitOps repo 등록 및 Root Application 생성**
+   GitOps repo 준비 후 추가 예정
+
+3. **앱 네임스페이스 ResourceQuota**
+   이 role이 아니라 GitOps repo에서 관리할 항목
+
+---
+<br>
+
 ## Remove worker-4 from Kubernetes
 
 `worker-4`를 다른 용도로 전환하기 전 클러스터에서 제외하고 Kubernetes 구성 요소를 정리

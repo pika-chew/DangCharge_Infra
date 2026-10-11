@@ -1,0 +1,39 @@
+---
+# ========================================
+#  버전 고정
+# ========================================
+
+# argo-cd 차트 10.10.2 = Argo CD v3.5.4
+argocd_chart_version: 10.10.2
+argocd_helm_version: v4.3.0
+argocd_python_kubernetes_version: 37.0.1
+
+
+# ========================================
+#  Helm 릴리스
+# ========================================
+
+argocd_release_name: argocd
+argocd_namespace: argocd
+argocd_chart_repo_url: https://argoproj.github.io/argo-helm
+
+# values.yaml 렌더링 위치와 Python kubernetes 라이브러리 전용 venv
+argocd_dir: /opt/argocd
+argocd_venv_dir: "{{ argocd_dir }}/venv"
+
+argocd_kubeconfig: /etc/kubernetes/admin.conf
+
+# Helm 바이너리 다운로드용 아키텍처 이름
+argocd_helm_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
+
+
+# ========================================
+#  PriorityClass / NodePort (values.yaml.j2에서 사용)
+# ========================================
+
+# PriorityClass의 value는 생성 후 변경 불가 (바꾸려면 삭제 후 재생성)
+argocd_priority_class_name: platform-critical
+argocd_priority_class_value: 100000
+
+argocd_server_node_port_http: 30080
+argocd_server_node_port_https: 30443
