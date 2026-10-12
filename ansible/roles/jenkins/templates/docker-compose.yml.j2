@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # 빌드는 기본 브리지(MTU 1500)에서 돌아 플러그인 다운로드가 멈출 수 있음 → 호스트 NIC(MTU 1450) 사용
+      network: host
     image: {{ jenkins_image }}
     container_name: jenkins
     restart: unless-stopped
