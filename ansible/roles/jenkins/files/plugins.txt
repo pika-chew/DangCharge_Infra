@@ -1,25 +1,41 @@
 # --- 파이프라인 / SCM ---
-workflow-aggregator
+workflow-aggregator:608.v67378e9d3db_1
 git
 github
 github-branch-source
+pipeline-github-lib:65.v203688e7727e
 pipeline-stage-view
+pipeline-graph-view:1053.v9df19e6ceed2
 
 # --- Docker 이미지 빌드/푸시 ---
-docker-workflow
+docker-workflow:653.v2f2c08eff0ec
 credentials-binding
 ssh-agent
 
 # --- 빌드 도구 (Spring Boot / React) ---
-gradle
+gradle:2.20.1253.vc116f0763a_eb_
+ant:520.vd082ecfb_16a_9
 nodejs
 
+# --- 에이전트 ---
+ssh-slaves:3.1097.v868116049892
+
+# --- 인증 / 권한 ---
+matrix-auth:3.3
+ldap:825.v2fca_37dd5b_cb_
+
+# --- 알림 ---
+email-ext:2038.v7b_8817a_499d9
+
 # --- 편의 / 운영 ---
-timestamper
-ws-cleanup
+timestamper:1.30
+ws-cleanup:0.49
+build-timeout:1.41
+dark-theme:652.vea_da_dfea_e769
 configuration-as-code
 
 # --- 모니터링 (Prometheus가 /prometheus 엔드포인트로 수집) ---
 prometheus
 
 # 버전을 고정하려면 plugin-id:버전 형식으로 적는다. 예) git:5.7.0
+# 버전이 적힌 것은 2026-10-12 기준 서버(jenkins-1)에 설치돼 있던 버전
