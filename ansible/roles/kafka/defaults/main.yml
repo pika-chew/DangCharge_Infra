@@ -1,0 +1,14 @@
+---
+kafka_dir: /opt/kafka
+kafka_data_dir: /data/kafka
+kafka_image: apache/kafka:4.1.0
+kafka_ui_image: ghcr.io/kafbat/kafka-ui:v1.2.0
+# KRaft 클러스터 ID. 데이터 디렉토리를 이 값으로 포맷하므로 한 번 띄운 뒤에는 바꾸지 않는다
+kafka_cluster_id: iDjYl7AlSECatnkRIsxFqA
+# 클러스터 밖 클라이언트(앱 파드, Debezium)에 알려줄 주소
+kafka_advertised_host: "{{ ansible_host }}"
+kafka_external_port: 9092
+kafka_ui_port: 8080
+kafka_heap_opts: -Xms1g -Xmx1g
+# 컨테이너 네트워크 MTU. VM NIC MTU보다 크면 큰 패킷이 버려진다 (jenkins role과 같은 이유)
+kafka_docker_mtu: 1450
