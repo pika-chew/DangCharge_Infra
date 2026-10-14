@@ -47,8 +47,16 @@ control-plane에서 `admin.conf`로 Helm 설치, PriorityClass 생성, argo-cd �
 Helm과 Python kubernetes 라이브러리(`/opt/argocd/venv`)는 role에서 설치
 
 - 버전: `roles/argocd/defaults/main.yml` (차트, Helm, Python kubernetes)
-- PriorityClass / 리소스 / NodePort: `roles/argocd/templates/values.yaml.j2`
-- UI 접속: `https://<노드 IP>:30443`
+- PriorityClass / 리소스 / Service: `roles/argocd/templates/values.yaml.j2`
+- VIP: `roles/argocd/defaults/main.yml`의 `argocd_server_vip` (MetalLB `argocd-vip` 풀은 GitOps repo에서 관리)
+- UI 접속: `https://<Argo CD VIP의 Floating IP>`
+
+NodePort에서 LoadBalancer로 처음 바꿀 때는 기존 NodePort(30080/30443)가 Service에 그대로 남는다
+Traefik NodePort와 겹치지 않도록 한 번만 Service를 지우고 playbook을 다시 실행해 새로 만든다
+```bash
+kubectl -n argocd delete service argocd-server
+ansible-playbook playbooks/argocd.yml
+```
 
 ### 설치 후 할 일
 
@@ -61,7 +69,7 @@ Helm과 Python kubernetes 라이브러리(`/opt/argocd/venv`)는 role에서 설�
    jenkins-1에는 kubeconfig가 없으므로 control-plane에서 실행
    `ubuntu` 사용자의 `~/.kube/config`(control-plane role이 `admin.conf`를 복사해 둔 것)를 사용
 
-   UI(`https://<노드 IP>:30443`)에 `admin`으로 로그인 후 비밀번호 변경
+   UI(`https://<Argo CD VIP의 Floating IP>`)에 `admin`으로 로그인 후 비밀번호 변경
    (추후 이 단계를 role의 task로 추가 가능)
 
 2. **GitOps repo 등록 및 Root Application 생성**
