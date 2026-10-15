@@ -1,0 +1,23 @@
+---
+- name: "Wait for Ready pods of {{ argocd_bootstrap_component }}"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ argocd_bootstrap_kubeconfig }}"
+    api_version: v1
+    kind: Pod
+    namespace: "{{ argocd_bootstrap_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/name={{ argocd_bootstrap_component }}"
+  register: argocd_bootstrap_component_pods
+  until:
+    - argocd_bootstrap_component_pods.resources | length > 0
+    - >-
+      argocd_bootstrap_component_pods.resources
+      | selectattr('metadata.deletionTimestamp', 'defined') | list | length == 0
+    - >-
+      argocd_bootstrap_component_pods.resources
+      | map(attribute='status.conditions', default=[]) | flatten
+      | selectattr('type', 'equalto', 'Ready')
+      | selectattr('status', 'equalto', 'True') | list | length
+      == argocd_bootstrap_component_pods.resources | length
+  retries: "{{ argocd_bootstrap_wait_retries }}"
+  delay: "{{ argocd_bootstrap_wait_delay }}"

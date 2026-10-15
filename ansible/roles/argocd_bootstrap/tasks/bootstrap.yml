@@ -1,0 +1,99 @@
+---
+- name: Allocate a temporary GitOps checkout on the Ansible controller
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: dangcharge-gitops-
+  delegate_to: localhost
+  become: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  check_mode: false
+  changed_when: false
+  register: argocd_bootstrap_checkout
+
+- name: Register GitOps bootstrap resources
+  block:
+    - name: Read the remote branch on the Ansible controller
+      ansible.builtin.git:
+        repo: "{{ argocd_bootstrap_repo_url }}"
+        dest: "{{ argocd_bootstrap_checkout.path }}/repo"
+        version: "{{ argocd_bootstrap_revision }}"
+        depth: 1
+        single_branch: true
+      environment:
+        GIT_TERMINAL_PROMPT: '0'
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"
+      check_mode: false
+      changed_when: false
+      # Git credential helpers may include sensitive details in errors.
+      no_log: true
+
+    - name: Check bootstrap object identity
+      ansible.builtin.assert:
+        that:
+          - bootstrap_document.apiVersion == 'argoproj.io/v1alpha1'
+          - bootstrap_document.kind == item.kind
+          - bootstrap_document.metadata.name == item.name
+          - bootstrap_document.metadata.namespace == argocd_bootstrap_namespace
+        quiet: true
+        fail_msg: Check the kind, name and namespace of the GitOps bootstrap manifest.
+      vars:
+        bootstrap_document: >-
+          {{ lookup('ansible.builtin.file', argocd_bootstrap_checkout.path ~ '/repo/bootstrap/' ~ item.file) | from_yaml }}
+      loop:
+        - {file: root-project.yaml, kind: AppProject, name: root}
+        - {file: infra-project.yaml, kind: AppProject, name: infra}
+        - {file: workloads-project.yaml, kind: AppProject, name: workloads}
+        - {file: root-app.yaml, kind: Application, name: root}
+      loop_control:
+        label: "{{ item.file }}"
+      when: item.kind == 'AppProject' or argocd_bootstrap_apply_root
+
+    - name: Prepare optional Argo CD repository credentials
+      ansible.builtin.import_tasks: repository-auth.yml
+      when: argocd_bootstrap_apply_root
+
+    - name: Apply the three projects in order
+      kubernetes.core.k8s:
+        kubeconfig: "{{ argocd_bootstrap_kubeconfig }}"
+        state: present
+        apply: true
+        definition: >-
+          {{ lookup('ansible.builtin.file', argocd_bootstrap_checkout.path ~ '/repo/bootstrap/' ~ item) | from_yaml }}
+      loop:
+        - root-project.yaml
+        - infra-project.yaml
+        - workloads-project.yaml
+
+    - name: Apply the root Application
+      kubernetes.core.k8s:
+        kubeconfig: "{{ argocd_bootstrap_kubeconfig }}"
+        state: present
+        apply: true
+        definition: >-
+          {{ lookup('ansible.builtin.file', argocd_bootstrap_checkout.path ~ '/repo/bootstrap/root-app.yaml') | from_yaml }}
+      when: argocd_bootstrap_apply_root
+
+    - name: Report registration scope
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'Check mode: no Kubernetes resources were written.' if ansible_check_mode
+             else 'Bootstrap resources registered.' }}
+          Root application requested: {{ argocd_bootstrap_apply_root }}.
+          Application sync and service readiness are managed by Argo CD and were not verified here.
+          An existing root is not disabled by project-only execution.
+
+  always:
+    - name: Remove the temporary GitOps checkout
+      ansible.builtin.file:
+        path: "{{ argocd_bootstrap_checkout.path }}"
+        state: absent
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"
+      check_mode: false
+      changed_when: false

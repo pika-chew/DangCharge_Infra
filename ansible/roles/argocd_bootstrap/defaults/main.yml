@@ -1,0 +1,19 @@
+---
+# Use installation overrides when supplied, without executing the install role.
+argocd_bootstrap_kubeconfig: "{{ argocd_kubeconfig | default('/etc/kubernetes/admin.conf') }}"
+argocd_bootstrap_python_interpreter: "{{ argocd_venv_dir | default('/opt/argocd/venv') }}/bin/python"
+argocd_bootstrap_namespace: "{{ argocd_namespace | default('argocd') }}"
+
+# Bootstrap manifests are read from GitOps, not maintained in this role.
+argocd_bootstrap_repo_url: https://github.com/pika-chew/DangCharge_GitOps.git
+argocd_bootstrap_revision: main
+
+# Projects can be prepared separately while GitOps fixes are pending.
+argocd_bootstrap_apply_root: true
+argocd_bootstrap_wait_retries: 60
+argocd_bootstrap_wait_delay: 5
+
+# HTTPS credentials must come from Vault or another external secret source.
+# Empty data preserves an existing repository Secret or uses public access.
+argocd_bootstrap_repository_secret_name: dangcharge-gitops
+argocd_bootstrap_repository_credentials: {}
