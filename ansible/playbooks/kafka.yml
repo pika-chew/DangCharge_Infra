@@ -1,0 +1,8 @@
+---
+- name: Deploy Kafka and Kafka UI containers
+  hosts: kafka
+  become: true
+
+  roles:
+    - docker
+    - kafka

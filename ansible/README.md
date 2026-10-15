@@ -4,7 +4,8 @@ Ansible로 Kubernetes 클러스터를 구축/관리합니다.
 
 - Ansible Control Node: jenkins-1
 - Control Plane: control-plane
-- Workers: worker-1 ~ worker-4
+- Workers: worker-1 ~ worker-3
+- Kafka: kafka-1
 
 ---
 <br>
@@ -33,6 +34,31 @@ ansible-playbook playbooks/site.yml
 ansible-playbook playbooks/jenkins-docker.yml
 ```
 `jenkins-docker.yml` 플레이북 실행 후 Docker 그룹권한을 적용하기 위해 jenkins-1 VM에 다시 로그인해야 함.
+
+---
+<br>
+
+## Kafka setup
+
+```bash
+ansible-playbook playbooks/kafka.yml
+```
+kafka-1에 Docker Engine을 설치하고 `/opt/kafka`에서 Docker Compose로 Kafka와 Kafka UI 실행
+플레이북 실행하기 전, kafka-1의 호스트 키를 `~/.ssh/known_hosts`에 등록하고 확인.
+
+- Kafka: `apache/kafka` 단일 노드 KRaft (broker + controller), 데이터는 `/data/kafka`
+- 클라이언트 접속 주소: `10.10.0.32:9092` (앱 파드, Debezium 등 VM 밖 클라이언트)
+- Kafka UI: `kafka-1:8080`, 인증이 없으므로 공인 주소로 열지 않음
+- 이미지 버전, 포트, 힙 크기: `roles/kafka/defaults/main.yml`
+- `kafka_cluster_id`는 데이터 디렉토리 포맷에 쓰이므로 한 번 띄운 뒤에는 바꾸지 않음
+
+### Kafka UI 접속
+
+로컬 PC에서 jenkins-1을 거쳐 SSH 터널을 연 뒤 브라우저에서 `http://localhost:18080` 접속
+
+```bash
+ssh -L 18080:10.10.0.32:8080 ubuntu@<jenkins-1 주소>
+```
 
 ---
 <br>

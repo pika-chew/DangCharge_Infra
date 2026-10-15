@@ -1,0 +1,57 @@
+services:
+  kafka:
+    image: {{ kafka_image }}
+    container_name: kafka
+    restart: unless-stopped
+    ports:
+      - "{{ kafka_external_port }}:9092"
+    environment:
+      TZ: Asia/Seoul
+      CLUSTER_ID: {{ kafka_cluster_id }}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # INTERNAL: 같은 compose 네트워크(Kafka UI), EXTERNAL: 앱 파드·Debezium 등 VM 밖 클라이언트
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://{{ kafka_advertised_host }}:{{ kafka_external_port }}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # 브로커가 1대라서 내부 토픽 복제 수를 1로 맞춘다
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: {{ kafka_heap_opts }}
+    volumes:
+      - {{ kafka_data_dir }}:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:29092 > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  kafka-ui:
+    image: {{ kafka_ui_image }}
+    container_name: kafka-ui
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    # 인증이 없으므로 공인 주소로 노출하지 않는다 (사설망 또는 SSH 터널로 접속)
+    ports:
+      - "{{ kafka_ui_port }}:8080"
+    environment:
+      TZ: Asia/Seoul
+      KAFKA_CLUSTERS_0_NAME: dangcharge
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      DYNAMIC_CONFIG_ENABLED: "false"
+
+networks:
+  default:
+    driver_opts:
+      com.docker.network.driver.mtu: "{{ kafka_docker_mtu }}"
