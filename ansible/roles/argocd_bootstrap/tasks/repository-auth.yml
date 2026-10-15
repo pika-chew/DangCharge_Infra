@@ -1,0 +1,34 @@
+---
+- name: Prepare explicitly supplied HTTPS repository credentials
+  no_log: true
+  block:
+    - name: Validate optional repository credentials
+      ansible.builtin.assert:
+        that:
+          - argocd_bootstrap_repository_credentials is mapping
+          - >-
+            argocd_bootstrap_repository_credentials | length == 0 or
+            (argocd_bootstrap_repository_credentials.keys() | list | sort == ['password', 'username'] and
+             argocd_bootstrap_repository_credentials.username | length > 0 and
+             argocd_bootstrap_repository_credentials.password | length > 0)
+        quiet: true
+
+    - name: Create or update the repository Secret when credentials are supplied
+      kubernetes.core.k8s:
+        kubeconfig: "{{ argocd_bootstrap_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ argocd_bootstrap_repository_secret_name }}"
+            namespace: "{{ argocd_bootstrap_namespace }}"
+            labels:
+              argocd.argoproj.io/secret-type: repository
+          type: Opaque
+          data:
+            type: "{{ 'git' | b64encode }}"
+            url: "{{ argocd_bootstrap_repo_url | b64encode }}"
+            username: "{{ argocd_bootstrap_repository_credentials.username | b64encode }}"
+            password: "{{ argocd_bootstrap_repository_credentials.password | b64encode }}"
+      when: argocd_bootstrap_repository_credentials | length > 0

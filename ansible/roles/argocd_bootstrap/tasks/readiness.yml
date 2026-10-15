@@ -1,0 +1,52 @@
+---
+- name: Check required runtime files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: true
+  loop:
+    - "{{ argocd_bootstrap_kubeconfig }}"
+    - "{{ argocd_bootstrap_python_interpreter }}"
+  # stat must still work if the dedicated Python has not been installed.
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  register: argocd_bootstrap_runtime
+
+- name: Require the existing installation runtime
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isreg | default(false)
+    quiet: true
+    fail_msg: Install Argo CD first or correct the bootstrap runtime paths.
+  loop: "{{ argocd_bootstrap_runtime.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Wait for Application and AppProject CRDs to be Established
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ argocd_bootstrap_kubeconfig }}"
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+  register: argocd_bootstrap_crd
+  until:
+    - argocd_bootstrap_crd.resources | length == 1
+    - >-
+      argocd_bootstrap_crd.resources[0].status.conditions | default([])
+      | selectattr('type', 'equalto', 'Established')
+      | selectattr('status', 'equalto', 'True') | list | length == 1
+  retries: "{{ argocd_bootstrap_wait_retries }}"
+  delay: "{{ argocd_bootstrap_wait_delay }}"
+  loop:
+    - applications.argoproj.io
+    - appprojects.argoproj.io
+
+- name: Wait for essential Argo CD components
+  ansible.builtin.include_tasks: wait-component.yml
+  loop:
+    - argocd-server
+    - argocd-repo-server
+    - argocd-application-controller
+    - argocd-redis
+  loop_control:
+    loop_var: argocd_bootstrap_component

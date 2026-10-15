@@ -9,17 +9,22 @@
       - argocd_bootstrap_namespace is string
       - argocd_bootstrap_namespace | length > 0
       - argocd_bootstrap_repo_url is string
-      - argocd_bootstrap_repo_url | length > 0
+      - argocd_bootstrap_repo_url is match('^https://[^/@]+/[^?#]+$')
       - argocd_bootstrap_revision is string
       - argocd_bootstrap_revision | length > 0
-      - argocd_bootstrap_destination_server is string
-      - argocd_bootstrap_destination_server.startswith('https://')
+      - argocd_bootstrap_revision is match('^[A-Za-z0-9][A-Za-z0-9._/-]*$')
+      - argocd_bootstrap_apply_root is boolean
+      - argocd_bootstrap_wait_retries | int > 0
+      - argocd_bootstrap_wait_delay | int > 0
     quiet: true
     fail_msg: Check the GitOps repository, revision, namespace and absolute runtime paths.
 
-# Resource application is added after readiness and safety checks are implemented.
-- name: Report bootstrap scaffold status
-  ansible.builtin.debug:
-    msg: >-
-      Bootstrap configuration validated for {{ inventory_hostname }}.
-      This scaffold does not connect to Kubernetes or apply resources yet.
+- name: Bootstrap through the existing Kubernetes Python environment
+  vars:
+    ansible_python_interpreter: "{{ argocd_bootstrap_python_interpreter }}"
+  block:
+    - name: Check Argo CD readiness
+      ansible.builtin.import_tasks: readiness.yml
+
+    - name: Read GitOps and apply bootstrap resources
+      ansible.builtin.import_tasks: bootstrap.yml
