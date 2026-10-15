@@ -1,0 +1,10 @@
+---
+# Use installation overrides when supplied, without executing the install role.
+argocd_bootstrap_kubeconfig: "{{ argocd_kubeconfig | default('/etc/kubernetes/admin.conf') }}"
+argocd_bootstrap_python_interpreter: "{{ argocd_venv_dir | default('/opt/argocd/venv') }}/bin/python"
+argocd_bootstrap_namespace: "{{ argocd_namespace | default('argocd') }}"
+
+# Bootstrap manifests are read from GitOps, not maintained in this role.
+argocd_bootstrap_repo_url: https://github.com/pika-chew/DangCharge_GitOps.git
+argocd_bootstrap_revision: main
+argocd_bootstrap_destination_server: https://kubernetes.default.svc

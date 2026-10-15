@@ -70,6 +70,39 @@ Helm과 Python kubernetes 라이브러리(`/opt/argocd/venv`)는 role에서 설�
 3. **앱 네임스페이스 ResourceQuota**
    이 role이 아니라 GitOps repo에서 관리할 항목
 
+### GitOps bootstrap (구현 2단계)
+
+기존 `playbooks/argocd.yml`은 설치 전용으로 유지합니다.
+별도 `playbooks/argocd-bootstrap.yml`이 `argocd_bootstrap` role을 실행합니다.
+현재는 변수 검증과 실행 구조만 구현되어 있으며, Kubernetes 접속이나 리소스 적용은 수행하지 않습니다.
+준비 상태 확인, 프로젝트 적용, root 적용 전 사전 점검은 다음 단계에서 추가합니다.
+
+```bash
+# 기존 설치 플레이북
+ansible-playbook playbooks/argocd.yml
+
+# 설치된 Argo CD의 부트스트랩 전용 플레이북 (현재는 변수 검증만 수행)
+ansible-playbook playbooks/argocd-bootstrap.yml
+```
+
+부트스트랩은 이번 실행에 포함된 control plane 중 첫 번째 노드에서만 실행합니다.
+특정 노드를 선택하려면 `--limit <control-plane 인벤토리 이름>`을 사용합니다.
+기존 설치 플레이북에는 이 제한을 추가하지 않습니다.
+
+기본값은 `roles/argocd_bootstrap/defaults/main.yml`에서 관리합니다.
+
+- kubeconfig: `/etc/kubernetes/admin.conf`
+- Kubernetes 모듈용 Python: `/opt/argocd/venv/bin/python`
+- Argo CD 네임스페이스: `argocd`
+- GitOps 저장소: `https://github.com/pika-chew/DangCharge_GitOps.git`, 브랜치: `main`
+- 대상 클러스터: `https://kubernetes.default.svc`
+
+기존 설치 role의 defaults는 자동으로 로드되지 않습니다.
+인벤토리나 실행 인자로 지정한 `argocd_kubeconfig`, `argocd_venv_dir`, `argocd_namespace`는
+부트스트랩 기본값에도 반영됩니다. 필요하면 `argocd_bootstrap_*` 변수를 직접 지정할 수 있습니다.
+Python과 kubeconfig 경로는 선택된 control plane 안의 경로입니다.
+GitOps YAML 복사본과 저장소 인증값은 이 role에 저장하지 않습니다.
+
 ---
 <br>
 

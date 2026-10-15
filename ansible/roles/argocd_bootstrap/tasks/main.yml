@@ -1,0 +1,25 @@
+---
+- name: Validate bootstrap configuration
+  ansible.builtin.assert:
+    that:
+      - argocd_bootstrap_kubeconfig is string
+      - argocd_bootstrap_kubeconfig.startswith('/')
+      - argocd_bootstrap_python_interpreter is string
+      - argocd_bootstrap_python_interpreter.startswith('/')
+      - argocd_bootstrap_namespace is string
+      - argocd_bootstrap_namespace | length > 0
+      - argocd_bootstrap_repo_url is string
+      - argocd_bootstrap_repo_url | length > 0
+      - argocd_bootstrap_revision is string
+      - argocd_bootstrap_revision | length > 0
+      - argocd_bootstrap_destination_server is string
+      - argocd_bootstrap_destination_server.startswith('https://')
+    quiet: true
+    fail_msg: Check the GitOps repository, revision, namespace and absolute runtime paths.
+
+# Resource application is added after readiness and safety checks are implemented.
+- name: Report bootstrap scaffold status
+  ansible.builtin.debug:
+    msg: >-
+      Bootstrap configuration validated for {{ inventory_hostname }}.
+      This scaffold does not connect to Kubernetes or apply resources yet.
