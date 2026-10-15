@@ -64,7 +64,7 @@
 #  Argo CD 설치
 # ========================================
 
-# 차트 values 렌더링 (PriorityClass, 리소스, NodePort)
+# 차트 values 렌더링 (PriorityClass, 리소스, VIP)
 - name: Render Argo CD values
   ansible.builtin.template:
     src: values.yaml.j2
