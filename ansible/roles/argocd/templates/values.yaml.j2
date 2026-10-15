@@ -6,14 +6,15 @@ global:
 
 
 # ========================================
-#  Argo CD UI/API 노출 (NodePort)
+#  Argo CD UI/API 노출 (MetalLB VIP)
 # ========================================
 
 server:
   service:
-    type: NodePort
-    nodePortHttp: {{ argocd_server_node_port_http }}
-    nodePortHttps: {{ argocd_server_node_port_https }}
+    # MetalLB 풀(argocd-vip)은 GitOps repo에서 관리하며 autoAssign이 꺼져 있어 IP를 직접 요청한다
+    type: LoadBalancer
+    annotations:
+      metallb.io/loadBalancerIPs: {{ argocd_server_vip }}
   resources:
     requests:
       cpu: 100m

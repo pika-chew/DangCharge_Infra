@@ -28,12 +28,12 @@ argocd_helm_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['arc
 
 
 # ========================================
-#  PriorityClass / NodePort (values.yaml.j2에서 사용)
+#  PriorityClass / VIP (values.yaml.j2에서 사용)
 # ========================================
 
 # PriorityClass의 value는 생성 후 변경 불가 (바꾸려면 삭제 후 재생성)
 argocd_priority_class_name: platform-critical
 argocd_priority_class_value: 100000
 
-argocd_server_node_port_http: 30080
-argocd_server_node_port_https: 30443
+# Neutron VIP 포트로 예약한 내부 IP (worker allowed address pairs에 포함)
+argocd_server_vip: 10.10.0.51
